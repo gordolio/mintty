@@ -192,6 +192,7 @@ write_char(wchar c, int width)
     clear_cc(line, curs->x);
     line->chars[curs->x].chr = c;
     line->chars[curs->x].attr = curs->attr;
+    line->chars[curs->x].tcattr = curs->tcattr;
   }  
 
   if (curs->wrapnext && curs->autowrap && width > 0) {
@@ -421,9 +422,13 @@ do_sgr(void)
  /* Set Graphics Rendition. */
   uint argc = term.csi_argc;
   uint attr = term.curs.attr;
+  truecolourattr tcattr = term.curs.tcattr;
   for (uint i = 0; i < argc; i++) {
     switch (term.csi_argv[i]) {
-      when 0: attr = ATTR_DEFAULT | (attr & ATTR_PROTECTED);
+      when 0:
+        attr = ATTR_DEFAULT | (attr & ATTR_PROTECTED);
+        tcattr.fgvalid = 0;
+        tcattr.bgvalid = 0;
       when 1: attr |= ATTR_BOLD;
       when 2: attr |= ATTR_DIM;
       when 4: attr |= ATTR_UNDER;
@@ -441,38 +446,64 @@ do_sgr(void)
       when 28: attr &= ~ATTR_INVISIBLE;
       when 30 ... 37: /* foreground */
         attr &= ~ATTR_FGMASK;
+        tcattr.fgvalid = 0;
         attr |= (term.csi_argv[i] - 30) << ATTR_FGSHIFT;
       when 90 ... 97: /* bright foreground */
         attr &= ~ATTR_FGMASK;
+        tcattr.fgvalid = 0;
         attr |= ((term.csi_argv[i] - 90 + 8) << ATTR_FGSHIFT);
       when 38: /* 256-colour foreground */
         if (i + 2 < argc && term.csi_argv[i + 1] == 5) {
           attr &= ~ATTR_FGMASK;
+          tcattr.fgvalid = 0;
           attr |= ((term.csi_argv[i + 2] & 0xFF) << ATTR_FGSHIFT);
           i += 2;
+        } else if (i + 4 < argc && term.csi_argv[i + 1] == 2) {
+          attr &= ~ATTR_FGMASK;
+          attr |= (7 << ATTR_FGSHIFT);
+          tcattr.fgvalid = 1;
+          tcattr.fgcolour = ((uint)term.csi_argv[i + 4] << 16) |
+                            ((uint)term.csi_argv[i + 3] <<  8) |
+                            ((uint)term.csi_argv[i + 2]);
+          i += 4;
         }
       when 39: /* default foreground */
         attr &= ~ATTR_FGMASK;
+        tcattr.fgvalid = 0;
         attr |= ATTR_DEFFG;
       when 40 ... 47: /* background */
         attr &= ~ATTR_BGMASK;
+        tcattr.bgvalid = 0;
         attr |= (term.csi_argv[i] - 40) << ATTR_BGSHIFT;
       when 100 ... 107: /* bright background */
         attr &= ~ATTR_BGMASK;
+        tcattr.bgvalid = 0;
         attr |= ((term.csi_argv[i] - 100 + 8) << ATTR_BGSHIFT);
       when 48: /* 256-colour background */
         if (i + 2 < argc && term.csi_argv[i + 1] == 5) {
           attr &= ~ATTR_BGMASK;
           attr |= ((term.csi_argv[i + 2] & 0xFF) << ATTR_BGSHIFT);
+          tcattr.bgvalid = 0;
           i += 2;
+        } else if (i + 4 < argc && term.csi_argv[i + 1] == 2) {
+          attr &= ~ATTR_BGMASK;
+          attr |= (0 << ATTR_BGSHIFT);
+          tcattr.bgvalid = 1;
+          tcattr.bgcolour = ((uint)term.csi_argv[i + 4] << 16) |
+                            ((uint)term.csi_argv[i + 3] <<  8) |
+                            ((uint)term.csi_argv[i + 2]);
+          i += 4;
         }
       when 49: /* default background */
         attr &= ~ATTR_BGMASK;
         attr |= ATTR_DEFBG;
+        tcattr.bgvalid = 0;
     }
   }
   term.curs.attr = attr;
+  term.curs.tcattr = tcattr;
   term.erase_char.attr = attr & (ATTR_FGMASK | ATTR_BGMASK);
+  term.erase_char.tcattr = tcattr;
 }
 
 /*
