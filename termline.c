@@ -138,6 +138,12 @@ termchars_equal_override(termchar *a, termchar *b, uint bchr, uint battr)
     return false;
   if ((a->attr & ~DATTR_MASK) != (battr & ~DATTR_MASK))
     return false;
+  if (((a->tcattr.fgvalid ^ b->tcattr.fgvalid) ||
+       (a->tcattr.fgvalid && (a->tcattr.fgcolour ^ b->tcattr.fgcolour))) ||
+      ((a->tcattr.bgvalid ^ b->tcattr.bgvalid) ||
+       (a->tcattr.bgvalid && (a->tcattr.bgcolour ^ b->tcattr.bgcolour))) ) {
+    return false;
+  }
   while (a->cc_next || b->cc_next) {
     if (!a->cc_next || !b->cc_next)
       return false;     /* one cc-list ends, other does not */
@@ -145,6 +151,12 @@ termchars_equal_override(termchar *a, termchar *b, uint bchr, uint battr)
     b += b->cc_next;
     if (a->chr != b->chr)
       return false;
+    if (((a->tcattr.fgvalid ^ b->tcattr.fgvalid) ||
+         (a->tcattr.fgvalid && (a->tcattr.fgcolour ^ b->tcattr.fgcolour))) ||
+        ((a->tcattr.bgvalid ^ b->tcattr.bgvalid) ||
+         (a->tcattr.bgvalid && (a->tcattr.bgcolour ^ b->tcattr.bgcolour))) ) {
+      return false;
+    }
   }
   return true;
 }
@@ -264,6 +276,21 @@ makeliteral_attr(struct buf *b, termchar *c)
     add(b, (uchar) ((attr >> 8) & 0xFF));
     add(b, (uchar) (attr & 0xFF));
   }
+
+  /* Pack true color attributes */
+  truecolourattr tcattr = c->tcattr;
+  add(b, tcattr.fgvalid);
+  if (tcattr.fgvalid) {
+    add(b, (tcattr.fgcolour >> 16) & 0xff);
+    add(b, (tcattr.fgcolour >>  8) & 0xff);
+    add(b, tcattr.fgcolour & 0xff);
+  }
+  add(b, tcattr.bgvalid);
+  if (tcattr.bgvalid) {
+    add(b, (tcattr.bgcolour >> 16) & 0xff);
+    add(b, (tcattr.bgcolour >>  8) & 0xff);
+    add(b, tcattr.bgcolour & 0xff);
+  }
 }
 
 static void
@@ -320,6 +347,22 @@ readliteral_attr(struct buf *b, termchar *c, termline *unused(line))
     val |= get(b) << 8;
     val |= get(b);
   }
+
+  /* Read true color attributes */
+  truecolourattr tcattr = {0, 0, 0, 0};
+  tcattr.fgvalid = get(b);
+  if (tcattr.fgvalid) {
+    tcattr.fgcolour = ((uint)get(b) << 16) |
+                     ((uint)get(b) << 8) |
+                     (uint)get(b);
+  }
+  tcattr.bgvalid = get(b);
+  if (tcattr.bgvalid) {
+    tcattr.bgcolour = ((uint)get(b) << 16) |
+                     ((uint)get(b) << 8) |
+                     (uint)get(b);
+  }
+  c->tcattr = tcattr;
 
   colourbits = (val >> (32 - 9)) & 0xFF;
   attr = (val & ((1 << (32 - 9)) - 1));

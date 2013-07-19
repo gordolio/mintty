@@ -67,6 +67,7 @@ restore_cursor(void)
   term_cursor *curs = &term.curs;
   *curs = term.saved_cursors[term.on_alt_screen];
   term.erase_char.attr = curs->attr & (ATTR_FGMASK | ATTR_BGMASK);
+  term.erase_char.tcattr = curs->tcattr;
   
  /* Make sure the window hasn't shrunk since the save */
   if (curs->x >= term.cols)

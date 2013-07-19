@@ -93,6 +93,10 @@ static void
 term_cursor_reset(term_cursor *curs)
 {
   curs->attr = ATTR_DEFAULT;
+  curs->tcattr.fgvalid = 0;
+  curs->tcattr.fgcolour = 0;
+  curs->tcattr.bgvalid = 0;
+  curs->tcattr.bgcolour = 0;
   curs->csets[0] = curs->csets[1] = CSET_ASCII;
   curs->autowrap = true;
 }
@@ -366,8 +370,13 @@ term_resize(int newrows, int newcols)
   for (int i = 0; i < newrows; i++) {
     termline *line = newline(newcols, false);
     term.displines[i] = line;
-    for (int j = 0; j < newcols; j++)
+    for (int j = 0; j < newcols; j++) {
       line->chars[j].attr = ATTR_INVALID;
+      line->chars[j].tcattr.fgvalid = 0;
+      line->chars[j].tcattr.fgcolour = 0;
+      line->chars[j].tcattr.bgvalid = 0;
+      line->chars[j].tcattr.bgcolour = 0;
+    }
   }
 
   // Make a new alternate screen.
