@@ -487,7 +487,8 @@ win_set_ime_open(bool open)
  * We are allowed to fiddle with the contents of `text'.
  */
 void
-win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
+win_text(int x, int y, wchar *text, int len, uint attr, int lattr,
+         truecolourattr* ptcattr)
 {
   lattr &= LATTR_MODE;
   int char_width = font_width * (1 + (lattr != LATTR_NORM));
@@ -552,7 +553,13 @@ win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
   }
   
   colour fg = colours[fgi];
+  if (ptcattr && ptcattr->fgvalid) {
+    fg = ptcattr->fgcolour;
+  }
   colour bg = colours[bgi];
+  if (ptcattr && ptcattr->bgvalid) {
+    bg = ptcattr->bgcolour;
+  }
   
   if (attr & ATTR_DIM) {
     fg = (fg & 0xFEFEFEFE) >> 1; // Halve the brightness.

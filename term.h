@@ -118,6 +118,12 @@ enum {
   ATTR_DEFAULT = ATTR_DEFFG | ATTR_DEFBG,
 };
 
+typedef struct {
+  uchar fgvalid;
+  uint fgcolour;
+  uchar bgvalid;
+  uint bgcolour;
+} truecolourattr;
 
 typedef struct {
  /*
@@ -140,6 +146,7 @@ typedef struct {
   */
   wchar chr;
   uint attr;
+  truecolourattr tcattr;
 
 } termchar;
 
@@ -210,6 +217,7 @@ typedef struct belltime {
 typedef struct {
   short x, y;
   uint attr;
+  truecolourattr tcattr;
   bool origin;
   bool autowrap;
   bool wrapnext;

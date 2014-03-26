@@ -154,8 +154,6 @@ win_switch(bool back)
   if (first_wnd) {
     if (back)
       first_wnd = last_wnd;
-    else
-      SetWindowPos(wnd, last_wnd, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     BringWindowToTop(first_wnd);
   }
 }
