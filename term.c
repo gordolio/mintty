@@ -93,6 +93,10 @@ static void
 term_cursor_reset(term_cursor *curs)
 {
   curs->attr = ATTR_DEFAULT;
+  curs->tcattr.fgvalid = 0;
+  curs->tcattr.fgcolour = 0;
+  curs->tcattr.bgvalid = 0;
+  curs->tcattr.bgcolour = 0;
   curs->csets[0] = curs->csets[1] = CSET_ASCII;
   curs->autowrap = true;
 }
@@ -366,8 +370,13 @@ term_resize(int newrows, int newcols)
   for (int i = 0; i < newrows; i++) {
     termline *line = newline(newcols, false);
     term.displines[i] = line;
-    for (int j = 0; j < newcols; j++)
+    for (int j = 0; j < newcols; j++) {
       line->chars[j].attr = ATTR_INVALID;
+      line->chars[j].tcattr.fgvalid = 0;
+      line->chars[j].tcattr.fgcolour = 0;
+      line->chars[j].tcattr.bgvalid = 0;
+      line->chars[j].tcattr.bgcolour = 0;
+    }
   }
 
   // Make a new alternate screen.
@@ -641,6 +650,7 @@ term_paint(void)
       scrpos.x = backward ? backward[j] : j;
       wchar tchar = d->chr;
       uint tattr = d->attr;
+      truecolourattr ttcattr = d->tcattr;
       
      /* Many Windows fonts don't have the Unicode hyphen, but groff
       * uses it for man pages, so display it as the ASCII version.
@@ -682,6 +692,7 @@ term_paint(void)
 
      /* FULL-TERMCHAR */
       newchars[j].attr = tattr;
+      newchars[j].tcattr = ttcattr;
       newchars[j].chr = tchar;
      /* Combining characters are still read from chars */
       newchars[j].cc_next = 0;
@@ -751,6 +762,7 @@ term_paint(void)
     bool dirty_run = (line->attr != displine->attr);
     bool dirty_line = dirty_run;
     uint attr = 0;
+    truecolourattr tcattr = {0, 0, 0, 0};
     int start = 0;
 
     displine->attr = line->attr;
@@ -758,12 +770,17 @@ term_paint(void)
     for (int j = 0; j < term.cols; j++) {
       termchar *d = chars + j;
       uint tattr = newchars[j].attr;
+      truecolourattr ttcattr = newchars[j].tcattr;
       wchar tchar = newchars[j].chr;
 
       if ((dispchars[j].attr ^ tattr) & ATTR_WIDE)
         dirty_line = true;
 
-      bool break_run = tattr ^ attr;
+      bool break_run = tattr ^ attr ||
+                       ((ttcattr.fgvalid ^ tcattr.fgvalid) ||
+                        (ttcattr.fgvalid && (ttcattr.fgcolour ^ tcattr.fgcolour))) ||
+                       ((ttcattr.bgvalid ^ tcattr.bgvalid) ||
+                        (ttcattr.bgvalid && (ttcattr.bgcolour ^ tcattr.bgcolour)));
 
      /*
       * Break on both sides of any combined-character cell.
@@ -780,11 +797,13 @@ term_paint(void)
       }
 
       if (break_run) {
-        if (dirty_run && textlen)
-          win_text(start, i, text, textlen, attr, line->attr);
+        if (dirty_run && textlen) {
+          win_text(start, i, text, textlen, attr, line->attr, &tcattr);
+        }
         start = j;
         textlen = 0;
         attr = tattr;
+        tcattr = ttcattr;
         dirty_run = dirty_line;
       }
 
@@ -808,6 +827,7 @@ term_paint(void)
         dispchars = displine->chars;
         dispchars[j].chr = tchar;
         dispchars[j].attr = tattr;
+        dispchars[j].tcattr = ttcattr;
         if (start == j)
           dispchars[j].attr |= DATTR_STARTRUN;
       }
@@ -825,8 +845,9 @@ term_paint(void)
         copy_termchar(displine, j, d);
       }
     }
-    if (dirty_run && textlen)
-      win_text(start, i, text, textlen, attr, line->attr);
+    if (dirty_run && textlen) {
+      win_text(start, i, text, textlen, attr, line->attr, &tcattr);
+    }
     release_line(line);
   }
 
