@@ -29,6 +29,7 @@ void win_set_chars(int rows, int cols);
 void win_set_pixels(int height, int width);
 void win_maximise(int max);
 void win_set_zorder(bool top);
+void win_set_active(void);
 void win_set_iconic(bool);
 void win_update_scrollbar(void);
 bool win_is_iconic(void);

@@ -200,6 +200,22 @@ win_set_zorder(bool top)
                SWP_NOMOVE | SWP_NOSIZE);
 }
 
+/*
+ * Activate window
+ * For this to work set the following registry entry
+ * HKEY_CURRENT_USER/Control Panel/Desktop
+ * ForegroundLockTimeout to 0
+ * Default is 30d40 (200000)
+ */
+void
+win_set_active(void)
+{
+  win_set_zorder(true);
+  SetActiveWindow(wnd);
+  SetForegroundWindow(wnd);
+  SetFocus(wnd);
+}
+
 bool
 win_is_iconic(void)
 {

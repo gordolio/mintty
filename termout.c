@@ -581,6 +581,8 @@ set_modes(bool state)
           term.wheel_reporting = state;
         when 7787:       /* Application mousewheel mode */
           term.app_wheel = state;
+        when 7788:
+          win_set_active();
       }
     }
     else {
